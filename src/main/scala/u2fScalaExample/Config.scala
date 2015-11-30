@@ -9,4 +9,5 @@ object Config {
   val password = conf.getString("auth.password")
   val keystorePath = conf.getString("ssl.keystore.path")
   val keystorePassword = conf.getString("ssl.keystore.password")
+  val APP_ID = conf.getString("appId")
 }
