@@ -1,24 +1,24 @@
 package u2fScalaExample
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.server.{Directive1, Directive, Route}
 import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.ContentTypes.`application/json`
+import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.Credentials
+import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.stream.ActorMaterializer
 import com.yubico.u2f.U2F
 import com.yubico.u2f.data.DeviceRegistration
 import com.yubico.u2f.data.messages.{AuthenticateRequestData, AuthenticateResponse, RegisterRequestData, RegisterResponse}
-
-import collection.JavaConversions._
-import collection.JavaConverters._
-
+import u2fScalaExample.Config.{APP_ID, password, username}
+import u2fScalaExample.html.authenticate_u2f_device
+import u2fScalaExample.marshallers.PlayTwirlMarshaller.twirlHtmlMarshaller
 import u2fScalaExample.ssl.CustomSSLContext
-import u2fScalaExample.Config.username
-import u2fScalaExample.Config.password
-import u2fScalaExample.Config.APP_ID
-import u2fScalaExample.storage.{UserStorage, RequestStorage}
+import u2fScalaExample.storage.{RequestStorage, UserStorage}
 
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 
 object Main extends App with CustomSSLContext {
   implicit val system = ActorSystem("my-system")
@@ -33,25 +33,29 @@ object Main extends App with CustomSSLContext {
     }
   }
 
+  val auth = authenticateBasic(realm = "Basic Auth", confAuthenticator)
+
   val AuthGet: Directive1[String] =
-    authenticateBasic(realm = "Basic Auth", confAuthenticator) & get
+    auth & get
 
   val AuthPostWithTokenResponse: Directive[(String, String)] =
-    authenticateBasic(realm = "Basic Auth", confAuthenticator) & post & formFields('tokenResponse)
+    auth & post & formFields('tokenResponse)
 
   val route =
     Route.seal {
-      path("authCheck") {
+      path("settings") {
+
         AuthGet { username =>
-          complete(s"The user is $username")
+          complete { html.settings.render(username) }
         }
       } ~
-      path("startRegistration") {
-        AuthGet { username =>
+      path("register") {
+        (auth & post) { username =>
           val registerRequestData = u2f.startRegistration(APP_ID, getRegistrations(username).asJava)
           RequestStorage.put(registerRequestData.getRequestId, registerRequestData.toJson)
+
           complete {
-            registerRequestData.toString + username
+            HttpEntity(`application/json`, registerRequestData.toJson)
           }
         }
       } ~
@@ -84,9 +88,10 @@ object Main extends App with CustomSSLContext {
           RequestStorage.remove(requestId)
 
           val deviceRegistration = u2f.finishAuthentication(authenticateRequest, authenticateResponse, getRegistrations(username).asJava)
+
           complete { "Authentication completed" + deviceRegistration.toString }
         }
-      }
+      } ~ getFromDirectory("public")
     }
 
   private def getRegistrations(username: String): Iterable[DeviceRegistration] = {

@@ -1,0 +1,25 @@
+@(userId: String)
+
+<html>
+<head>
+    <link rel="stylesheet" href="/css/main.css">
+    <script src="https://demo.yubico.com/js/u2f-api.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+</head>
+<body>
+<div class="row">
+    <div class="col-md-10">
+        <h1>Welcome @userId</h1>
+        <p>Click the register button to register your U2F device</p>
+        <button data-input="register">Register</button>
+    </div>
+</div>
+<div>
+    <p data-display="touch">Touch your U2F token to register.</p>
+    <form method="POST" action="/finishRegistration" id="form" onsubmit="return false;">
+        <input type="hidden" name="tokenResponse" id="tokenResponse" />
+    </form>
+</div>
+<script src="/js/main.js"></script>
+</body>
+</html>
