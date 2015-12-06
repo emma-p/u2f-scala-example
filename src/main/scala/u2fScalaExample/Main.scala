@@ -12,7 +12,6 @@ import com.yubico.u2f.U2F
 import com.yubico.u2f.data.DeviceRegistration
 import com.yubico.u2f.data.messages.{AuthenticateRequestData, AuthenticateResponse, RegisterRequestData, RegisterResponse}
 import u2fScalaExample.Config.{APP_ID, password, username}
-import u2fScalaExample.html.authenticate_u2f_device
 import u2fScalaExample.marshallers.PlayTwirlMarshaller.twirlHtmlMarshaller
 import u2fScalaExample.ssl.CustomSSLContext
 import u2fScalaExample.storage.{RequestStorage, UserStorage}

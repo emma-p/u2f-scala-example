@@ -2,6 +2,7 @@ $(document).ready(function() {
     var REGISTER_BTN = $('[data-input="register"]');
     var TOUCH = $('[data-display="touch"]');
     var TOKEN_RESPONSE = $('#tokenResponse');
+    var FORM = $('#form');
 
     var onTouch = function(data) {
         if(data.errorCode) {
@@ -9,7 +10,7 @@ $(document).ready(function() {
             return;
         }
         TOKEN_RESPONSE.val(JSON.stringify(data));
-        TOUCH.submit();
+        FORM.submit();
     };
 
     TOUCH.hide();
