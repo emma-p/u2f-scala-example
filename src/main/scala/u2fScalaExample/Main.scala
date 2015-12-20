@@ -34,17 +34,17 @@ object Main extends App with CustomSSLContext {
 
   val auth = authenticateBasic(realm = "Basic Auth", confAuthenticator)
 
-  val AuthGet: Directive1[String] =
+  val authGet: Directive1[String] =
     auth & get
 
-  val AuthPostWithTokenResponse: Directive[(String, String)] =
+  val authPostWithTokenResponse: Directive[(String, String)] =
     auth & post & formFields('tokenResponse)
 
   val route =
     Route.seal {
       path("settings") {
 
-        AuthGet { username =>
+        authGet { username =>
           complete { html.settings.render(username) }
         }
       } ~
@@ -59,12 +59,14 @@ object Main extends App with CustomSSLContext {
         }
       } ~
       path("finishRegistration") {
-        AuthPostWithTokenResponse { (username, tokenResponse) =>
+        authPostWithTokenResponse { (username, tokenResponse) =>
           val registerResponse = RegisterResponse.fromJson(tokenResponse)
 
-          val requestId = registerResponse.getRequestId
-          val registerRequestData = RegisterRequestData.fromJson(requestId)
+          val requestData = RequestStorage.get(registerResponse.getRequestId)
           RequestStorage.remove(registerResponse.getRequestId)
+
+          val registerRequestData = RegisterRequestData.fromJson(requestData)
+
           val registration = u2f.finishRegistration(registerRequestData, registerResponse)
           UserStorage.put(username, registration.getKeyHandle, registration.toJson)
 
@@ -72,14 +74,15 @@ object Main extends App with CustomSSLContext {
         }
       } ~
       path("startAuthentication") {
-        AuthGet { username =>
+        authGet { username =>
           val authenticateRequestData = u2f.startAuthentication(APP_ID, getRegistrations(username).asJava)
           RequestStorage.put(authenticateRequestData.getRequestId, authenticateRequestData.toJson)
+
           complete { authenticateRequestData.toJson + username }
         }
       } ~
       path("finishAuthentication") {
-        AuthPostWithTokenResponse { (username, tokenResponse) =>
+        authPostWithTokenResponse { (username, tokenResponse) =>
           val authenticateResponse = AuthenticateResponse.fromJson(tokenResponse)
           val requestId = authenticateResponse.getRequestId
           val authenticateRequest = AuthenticateRequestData.fromJson(requestId)

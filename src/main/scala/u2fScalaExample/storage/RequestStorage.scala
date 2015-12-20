@@ -7,6 +7,10 @@ import redis.clients.jedis.Jedis
 import collection.JavaConversions._
 
 object RequestStorage {
+  def get(requestId: String): String = {
+    JedisClient.store.get(s"requestStorage:$requestId")
+  }
+
   def put(requestId: String, requestData: String): String = {
     JedisClient.store.set(s"requestStorage:$requestId", requestData)
   }

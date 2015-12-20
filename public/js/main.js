@@ -19,7 +19,6 @@ $(document).ready(function() {
         console.log('register');
 
         $.post('/register', function(data) {
-            console.log('request data arrived from app');
             u2f.register(data.registerRequests, data.authenticateRequests, onTouch);
             TOUCH.show();
         });
