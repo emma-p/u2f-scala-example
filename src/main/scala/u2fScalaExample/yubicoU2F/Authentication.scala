@@ -35,7 +35,6 @@ object Authentication {
     auth.recover {
       case e: U2fBadInputException => U2FBadInputError().left
       case e: DeviceCompromisedException => DeviceCompromisedError().left
-      case _ => UnexpectedError().left
     }
   }
 

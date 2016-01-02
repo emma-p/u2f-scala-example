@@ -35,7 +35,6 @@ object Registration {
     reg.recover {
       case e: U2fBadInputException => U2FBadInputError().left
       case e: JedisException => JedisError().left
-      case _ => UnexpectedError().left
     }
   }
 

@@ -2,8 +2,7 @@ package u2fScalaExample
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ContentTypes.`application/json`
-import akka.http.scaladsl.model.{StatusCodes, HttpEntity}
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.Credentials
 import akka.http.scaladsl.server.{Directive, Directive1, Route}
@@ -11,13 +10,11 @@ import akka.stream.ActorMaterializer
 import cats.data.Xor
 import com.yubico.u2f.U2F
 import u2fScalaExample.Config.{password, username}
+import u2fScalaExample.marshallers.JsonSerializableMarshaller._
 import u2fScalaExample.marshallers.PlayTwirlMarshaller.twirlHtmlMarshaller
 import u2fScalaExample.model.Username
 import u2fScalaExample.ssl.CustomSSLContext
-
 import u2fScalaExample.yubicoU2F.{Authentication, Registration}
-
-import scala.util.{Failure, Success}
 
 object Main extends App with CustomSSLContext {
   implicit val system = ActorSystem("my-system")
@@ -32,8 +29,7 @@ object Main extends App with CustomSSLContext {
     }
   }
 
-  //TODO check why returns username
-  val auth = authenticateBasic(realm = "Basic Auth", confAuthenticator).map(name => Username(name))
+  val auth = authenticateBasic(realm = "Basic Auth", confAuthenticator).map(Username)
 
   val authGet: Directive1[Username] =
     auth & get
@@ -51,53 +47,36 @@ object Main extends App with CustomSSLContext {
       } ~
       path("register") {
         (auth & post) { username =>
-          onComplete(Registration.start(username)) {
-            case Success(data) =>
-              complete { HttpEntity(`application/json`, data.toJson) }
-            case Failure(error) =>
-              complete { StatusCodes.InternalServerError }
-          }
+          onSuccess(Registration.start(username))(complete(_))
         }
       } ~
       path("finishRegistration") {
         authPostWithTokenResponse { (username, tokenResponse) =>
-          onComplete(Registration.finish(username, tokenResponse)) {
-            case Success(Xor.Right(())) =>
+          onSuccess(Registration.finish(username, tokenResponse)) {
+            case Xor.Right(_) =>
               complete { "Registration completed" }
-            //TODO error handling
-            case Success(Xor.Left((e))) =>
-              complete { StatusCodes.InternalServerError }
-            case _ =>
-              complete { StatusCodes.InternalServerError }
+            case Xor.Left(e) =>
+              complete { (StatusCodes.BadRequest, e.get) }
           }
         }
       } ~
       path("startAuthentication") {
         authGet { username =>
-          onComplete(Authentication.start(username)) {
-            case Success(data) =>
-              complete { HttpEntity(`application/json`, data.toJson) }
-            case Failure(error) =>
-              complete { StatusCodes.InternalServerError }
-          }
+          onSuccess(Authentication.start(username))(complete(_))
         }
       } ~
       path("finishAuthentication") {
         authPostWithTokenResponse { (username, tokenResponse) =>
-          onComplete(Authentication.finish(username, tokenResponse)) {
-            case Success(Xor.Right(deviceRegistration)) =>
+          onSuccess(Authentication.finish(username, tokenResponse)) {
+            case Xor.Right(deviceRegistration) =>
               complete { "Authentication completed" + deviceRegistration.toString }
-              //TODO error handling
-            case Success(Xor.Left(e)) =>
-              complete { StatusCodes.InternalServerError }
-            case _ =>
-              complete { StatusCodes.InternalServerError }
+            case Xor.Left(e) =>
+              complete { (StatusCodes.BadRequest, e.get) }
           }
         }
       } ~
       getFromDirectory("public")
     }
-
 
   Http().bindAndHandle(route, "localhost", 8080, httpsContext = Some(httpsContext))
     .recover { case e: Throwable ⇒ system.shutdown() }
